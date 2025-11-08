@@ -1,4 +1,4 @@
-import { Body, Controller, Post, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, HttpException, HttpStatus, HttpCode } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -9,6 +9,7 @@ export class UsersController {
 
   // --- Register ---
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(@Body() body: RegisterUserDto): Promise<{ token: string }> {
     try {
       return await this.usersService.register(body);
@@ -19,11 +20,12 @@ export class UsersController {
 
   // --- Login ---
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async login(@Body() body: LoginUserDto): Promise<{ token: string }> {
     try {
       return await this.usersService.login(body);
     } catch (error) {
-      throw new HttpException(error.message, HttpStatus.UNAUTHORIZED);
+      throw new HttpException(error.message, error.response.statusCode || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }
