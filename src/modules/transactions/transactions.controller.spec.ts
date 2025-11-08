@@ -1,83 +1,128 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionsController } from './transactions.controller';
 import { TransactionsService } from './transactions.service';
-import { AuthGuard } from '../../guard/auth.guard';
 
 describe('TransactionsController', () => {
   let controller: TransactionsController;
   let service: TransactionsService;
 
+  const mockService = {
+    getAllTransactions: jest.fn(),
+    topTransactionsByUser: jest.fn(),
+    topUsersByTransactionValue: jest.fn(),
+    getTransactionStats: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TransactionsController],
       providers: [
-        {
-          provide: TransactionsService,
-          useValue: {
-            topTransactionsByUser: jest.fn(),
-            topUsersByTransactionValue: jest.fn(),
-          },
-        },
+        { provide: TransactionsService, useValue: mockService },
       ],
-    })
-      .overrideGuard(AuthGuard)
-      .useValue({ canActivate: jest.fn(() => true) })
-      .compile();
+    }).compile();
 
     controller = module.get<TransactionsController>(TransactionsController);
     service = module.get<TransactionsService>(TransactionsService);
+
+    jest.clearAllMocks();
+  });
+
+  describe('getAllTransactions', () => {
+    it('should call service with correct filters', async () => {
+      const mockResult = { transactions: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+      mockService.getAllTransactions.mockResolvedValue(mockResult);
+
+      const query = {
+        username: 'john',
+        type: 'deposit',
+        status: 'SUCCESS',
+        fromDate: '2025-11-01',
+        toDate: '2025-11-02',
+        page: '1',
+        limit: '5',
+      };
+
+      const result = await controller.getAllTransactions(
+        query.username,
+        query.type,
+        query.status as 'SUCCESS',
+        query.fromDate,
+        query.toDate,
+        Number(query.page),
+        Number(query.limit),
+      );
+
+      expect(mockService.getAllTransactions).toHaveBeenCalledWith({
+        username: 'john',
+        type: 'deposit',
+        status: 'SUCCESS',
+        fromDate: new Date('2025-11-01'),
+        toDate: new Date('2025-11-02'),
+        page: 1,
+        limit: 5,
+      });
+      expect(result).toEqual(mockResult);
+    });
   });
 
   describe('topTransactionsByUser', () => {
-    it('should return top transactions for a user', async () => {
-      const mockResult = { transactions: [{ id: 1, amount: 100 }] };
-      jest
-        .spyOn(service, 'topTransactionsByUser')
-        .mockResolvedValue(mockResult);
+    it('should call service with user id and limit', async () => {
+      const mockResult = { transactions: [] };
+      mockService.topTransactionsByUser.mockResolvedValue(mockResult);
 
       const req = { user: { id: 1 } };
-      const result = await controller.topTransactionsByUser(req, 3);
+      const limit = 3;
 
-      expect(service.topTransactionsByUser).toHaveBeenCalledWith(1, 3);
+      const result = await controller.topTransactionsByUser(req, limit);
+
+      expect(mockService.topTransactionsByUser).toHaveBeenCalledWith(1, limit);
       expect(result).toEqual(mockResult);
     });
 
-    it('should use default limit if none provided', async () => {
-      const mockResult = { transactions: [{ id: 1, amount: 100 }] };
-      jest
-        .spyOn(service, 'topTransactionsByUser')
-        .mockResolvedValue(mockResult);
+    it('should default limit to 5 if not provided', async () => {
+      const mockResult = { transactions: [] };
+      mockService.topTransactionsByUser.mockResolvedValue(mockResult);
 
       const req = { user: { id: 1 } };
-      const result = await controller.topTransactionsByUser(req, undefined);
 
-      expect(service.topTransactionsByUser).toHaveBeenCalledWith(1, 5); // default 5
+      const result = await controller.topTransactionsByUser(req);
+
+      expect(mockService.topTransactionsByUser).toHaveBeenCalledWith(1, 5);
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('topUsersByTransactionValue', () => {
-    it('should return top users by transaction value', async () => {
-      const mockResult = { users: [{ userId: 1, username: 'Alice', total: 150 }] };
-      jest
-        .spyOn(service, 'topUsersByTransactionValue')
-        .mockResolvedValue(mockResult);
+    it('should call service with limit', async () => {
+      const mockResult = { users: [] };
+      mockService.topUsersByTransactionValue.mockResolvedValue(mockResult);
 
-      const result = await controller.topUsersByTransactionValue(2);
+      const limit = 4;
+      const result = await controller.topUsersByTransactionValue(limit);
 
-      expect(service.topUsersByTransactionValue).toHaveBeenCalledWith(2);
+      expect(mockService.topUsersByTransactionValue).toHaveBeenCalledWith(limit);
       expect(result).toEqual(mockResult);
     });
 
-    it('should use default limit if none provided', async () => {
-      const mockResult = { users: [{ userId: 1, username: 'Alice', total: 150 }] };
-      jest
-        .spyOn(service, 'topUsersByTransactionValue')
-        .mockResolvedValue(mockResult);
+    it('should default limit to 5 if not provided', async () => {
+      const mockResult = { users: [] };
+      mockService.topUsersByTransactionValue.mockResolvedValue(mockResult);
 
       const result = await controller.topUsersByTransactionValue(undefined);
 
-      expect(service.topUsersByTransactionValue).toHaveBeenCalledWith(5); // default 5
+      expect(mockService.topUsersByTransactionValue).toHaveBeenCalledWith(5);
+      expect(result).toEqual(mockResult);
+    });
+  });
+
+  describe('getTransactionStats', () => {
+    it('should call service and return stats', async () => {
+      const mockResult = { totalVolume: 10 };
+      mockService.getTransactionStats.mockResolvedValue(mockResult);
+
+      const result = await controller.getTransactionStats();
+
+      expect(mockService.getTransactionStats).toHaveBeenCalled();
       expect(result).toEqual(mockResult);
     });
   });
