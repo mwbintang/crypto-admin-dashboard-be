@@ -1,95 +1,78 @@
 import 'dotenv/config';
 import { PrismaClient } from 'generated/prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // --- USERS ---
-  await prisma.user.createMany({
-    data: [
-      { email: 'alice@example.com', name: 'Alice' },
-      { email: 'bob@example.com', name: 'Bob' },
-      { email: 'charlie@example.com', name: 'Charlie' },
-    ],
-    skipDuplicates: true,
-  });
+  // Clear old data first
+  await prisma.transaction.deleteMany();
+  await prisma.wallet.deleteMany();
+  await prisma.user.deleteMany();
 
-  // --- FETCH USERS ---
-  const [alice, bob, charlie] = await Promise.all([
-    prisma.user.findUnique({ where: { email: 'alice@example.com' } }),
-    prisma.user.findUnique({ where: { email: 'bob@example.com' } }),
-    prisma.user.findUnique({ where: { email: 'charlie@example.com' } }),
+  // Create users with hashed passwords
+  const users = await Promise.all([
+    createUser('alice', 'alice@example.com', 'password123'),
+    createUser('bob', 'bob@example.com', 'password123'),
+    createUser('charlie', 'charlie@example.com', 'password123'),
   ]);
 
-  if (!alice || !bob || !charlie) {
-    throw new Error('❌ Some users were not created correctly');
-  }
+  // Create wallets
+  const wallets = await Promise.all(
+    users.map((user, i) =>
+      prisma.wallet.create({
+        data: {
+          userId: user.id,
+          balance: 1000 * (i + 1), // 1000, 2000, 3000
+        },
+      }),
+    ),
+  );
 
-  // --- WALLETS ---
-  await prisma.wallet.upsert({
-    where: { userId: alice.id },
-    update: { balance: 1000 },
-    create: {
-      userId: alice.id,
-      balance: 1000,
-    },
+  // Create transactions
+  await prisma.transaction.createMany({
+    data: [
+      {
+        walletId: wallets[0].id,
+        type: 'deposit',
+        amount: 500,
+      },
+      {
+        walletId: wallets[1].id,
+        type: 'transfer',
+        amount: 300,
+        targetUserId: users[0].id,
+      },
+      {
+        walletId: wallets[2].id,
+        type: 'deposit',
+        amount: 1000,
+      },
+    ],
   });
 
-  await prisma.wallet.upsert({
-    where: { userId: bob.id },
-    update: { balance: 500 },
-    create: {
-      userId: bob.id,
-      balance: 500,
+  console.log('✅ Seeding completed successfully!');
+}
+
+// Helper function to create a user with hashed password
+async function createUser(username: string, email: string, password: string) {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  return prisma.user.create({
+    data: {
+      username,
+      password: hashedPassword,
     },
   });
-
-  await prisma.wallet.upsert({
-    where: { userId: charlie.id },
-    update: { balance: 200 },
-    create: {
-      userId: charlie.id,
-      balance: 200,
-    },
-  });
-
-  // --- TRANSACTIONS ---
-  const aliceWallet = await prisma.wallet.findUnique({ where: { userId: alice.id } });
-  const bobWallet = await prisma.wallet.findUnique({ where: { userId: bob.id } });
-
-  if (aliceWallet && bobWallet) {
-    await prisma.transaction.createMany({
-      data: [
-        {
-          walletId: aliceWallet.id,
-          type: 'deposit',
-          amount: 500,
-        },
-        {
-          walletId: bobWallet.id,
-          type: 'deposit',
-          amount: 200,
-        },
-        {
-          walletId: aliceWallet.id,
-          type: 'transfer',
-          amount: 150,
-          targetUserId: bob.id,
-        },
-      ],
-    });
-  }
-
-  console.log('✅ Seeding complete!');
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Seeding failed:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
   });
