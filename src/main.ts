@@ -7,6 +7,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
+  // Enable CORS for your React frontend
+  app.enableCors({
+    origin: 'http://localhost:3001', // React dev server
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true, // if you want cookies or auth headers
+  });
+
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

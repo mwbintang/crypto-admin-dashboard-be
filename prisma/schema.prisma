@@ -37,10 +37,18 @@ model Transaction {
   id           Int       @id @default(autoincrement())
   wallet       Wallet    @relation(fields: [walletId], references: [id])
   walletId     Int
-  type         String    // "deposit" | "transfer"
+  type         String    
   amount       Float
-  targetUserId Int?      // for transfers
+  targetUserId Int?      
   createdAt    DateTime  @default(now())
+  status       Status    @default(SUCCESS) // add enum for status
 
   @@map("transactions")
+}
+
+// Enum definition
+enum Status {
+  PENDING
+  SUCCESS
+  FAILED
 }
