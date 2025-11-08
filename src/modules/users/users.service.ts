@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { ENV } from 'src/constant/env';
 
 @Injectable()
 export class UsersService {
@@ -43,7 +44,7 @@ export class UsersService {
 
     const token = jwt.sign(
       { id: user.id, username: user.username },
-      process.env.JWT_SECRET || 'secret',
+      ENV.JWT_SECRET,
       { expiresIn: '7d' },
     );
 
@@ -56,14 +57,32 @@ export class UsersService {
 
     // Find user
     const user = await this.prisma.user.findUnique({ where: { username } });
-    if (!user) throw new Error('Invalid credentials');
+    if (!user) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Invalid credentials',
+          error: 'BAD REQUEST',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     // Compare password
     const match = await bcrypt.compare(password, user.password);
-    if (!match) throw new Error('Invalid credentials');
+    if (!match) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Invalid credentials',
+          error: 'BAD REQUEST',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     // Generate JWT (you can move secret to env)
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET || 'secret', {
+    const token = jwt.sign({ id: user.id, username: user.username }, ENV.JWT_SECRET, {
       expiresIn: '1d',
     });
 

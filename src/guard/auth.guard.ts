@@ -1,0 +1,44 @@
+import {
+    CanActivate,
+    ExecutionContext,
+    Injectable,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
+import * as jwt from 'jsonwebtoken';
+import { ENV } from 'src/constant/env';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+    constructor() { }
+
+    async canActivate(context: ExecutionContext): Promise<boolean> {
+        const request = context.switchToHttp().getRequest<Request>();
+
+        const token = this.extractTokenFromHeader(request);
+        if (!token) {
+            throw new UnauthorizedException('Authorization token not found');
+        }
+
+        const secret = ENV.JWT_SECRET;
+        if (!secret) {
+            throw new Error('JWT_SECRET environment variable is not defined');
+        }
+
+        try {
+            // Type assertion to ensure TypeScript knows token & secret are strings
+            const payload = jwt.verify(token, secret) as any;      // Attach user info to request
+            request['user'] = payload;
+        } catch (error) {
+            throw new UnauthorizedException('Invalid or expired token');
+        }
+
+        return true;
+    }
+
+    private extractTokenFromHeader(request: Request): string | undefined {
+        const [type, token] = request.headers['authorization']?.split(' ') ?? [];
+        return type === 'Bearer' ? token : undefined;
+    }
+}
