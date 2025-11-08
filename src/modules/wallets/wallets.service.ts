@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, HttpStatus, HttpException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { DepositDto } from './dto/deposit.dto';
 import { TransferDto } from './dto/transfer.dto';
 
