@@ -1,10 +1,10 @@
 import { ConflictException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
-import { ENV } from 'src/constant/env';
+import { ENV } from '../../constant/env';
 
 @Injectable()
 export class UsersService {
